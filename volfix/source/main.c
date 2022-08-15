@@ -47,15 +47,34 @@ extern void __system_allocateHeaps(void) {
     res = svcControlMemory(&__ctru_linear_heap, 0x0, 0x0, __ctru_linear_heap_size, (MemOp)MEMOP_ALLOC_LINEAR, (MemPerm)(MEMPERM_READ | MEMPERM_WRITE));
     if(res < 0) *(u32*)0x00100200 = res;
     if(__ctru_linear_heap < 0x10000000) *(u32*)0x00100071 = __ctru_linear_heap;
+	// Mappable allocator init
+	mappableInit(OS_MAP_AREA_BEGIN, OS_MAP_AREA_END);
     // Set up newlib heap
     fake_heap_start = (char*)__ctru_heap;
     fake_heap_end = fake_heap_start + __ctru_heap_size;
 }
 
 int main(void) {
+    hidInit();
+
     for (;;) {
-        svcSleepThread(1e8);
+        hidScanInput();
+        u16 keys = hidKeysDown();
+
+        if (keys & KEY_SELECT) {
+            if (keys & KEY_DLEFT) {
+                // volume down
+                break;
+            } else if (keys & KEY_DRIGHT) {
+                // volume up
+                break;
+            }
+        }
+
+        svcSleepThread(20000000LL);
     }
+
+    hidExit();
 
     return 0;
 }
