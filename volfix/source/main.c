@@ -54,26 +54,69 @@ extern void __system_allocateHeaps(void) {
     fake_heap_end = fake_heap_start + __ctru_heap_size;
 }
 
+static void adjust(u8 *out, float slider, float value) {
+    // special case for mute
+    if (value == 0.0f) {
+        out[0] = 255;
+        out[1] = 0;
+        return;
+    }
+    // calculate the volume offsets to approximate the desired volume
+    float diff = slider - value;
+    float min = (diff > 0.0f) ? (diff / (1.0f - value)) : 0.0f;
+    float max = (diff < 0.0f) ? (-diff / value) : 1.0f;
+    out[0] = (u8) (255.0f * min);
+    out[1] = (u8) (255.0f * max);
+}
+
+static u8 volume;
+
+static void volumeAdjust(s8 delta) {
+    // disable volume slider
+    u8 regTransfer[2] = { 0xff, 0x00 };
+    MCUHWC_WriteRegister(0x58, regTransfer, 2);
+    // get volume offsets
+    MCUHWC_ReadRegister(0x58, regTransfer, 2);
+    // get raw volume
+    u8 volumeSlider;
+    MCUHWC_ReadRegister(0x27, &volumeSlider, 1);
+    // adjust
+    s32 newVolume = volume + delta;
+    if (newVolume > 63) {
+        volume = 63;
+    } else if (newVolume < 0) {
+        volume = 0;
+    } else {
+        volume = newVolume;
+    }
+    // and update
+    adjust(regTransfer, volumeSlider / 255.0f, volume / 63.0f);
+    MCUHWC_WriteRegister(0x58, regTransfer, 2);
+}
+
 int main(void) {
     hidInit();
+    mcuHwcInit();
+    MCUHWC_GetSoundSliderLevel(&volume);
 
     for (;;) {
         hidScanInput();
-        u16 keys = hidKeysDown();
+        u32 held = hidKeysHeld();
 
-        if (keys & KEY_SELECT) {
-            if (keys & KEY_DLEFT) {
+        if (held & KEY_SELECT) {
+            if (held & KEY_DLEFT) {
                 // volume down
-                break;
-            } else if (keys & KEY_DRIGHT) {
+                volumeAdjust(-1);
+            } else if (held & KEY_DRIGHT) {
                 // volume up
-                break;
+                volumeAdjust(+1);
             }
         }
 
         svcSleepThread(20000000LL);
     }
 
+    mcuHwcExit();
     hidExit();
 
     return 0;
