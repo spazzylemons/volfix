@@ -18,8 +18,6 @@
 
 #include <3ds.h>
 
-#define APPMEMTYPE (*(u32*)0x1FF80030)
-
 extern void __system_allocateHeaps(void) {
     extern char* fake_heap_start;
     extern char* fake_heap_end;
@@ -31,14 +29,12 @@ extern void __system_allocateHeaps(void) {
 
     extern int __stacksize__;
 
-    bool is_new = APPMEMTYPE > 5;
-
     u32 tmp = 0;
     Result res = 0;
-    // Distribute available memory into halves, aligning to page size.
-    __ctru_heap_size = is_new ? 0x320000 : 0x84000;
-    __ctru_linear_heap_size = is_new ? 0x2A0000 : 0x1000;
-    __stacksize__ = is_new ? 0x10000 : 0x8000;
+    // Distribute available memory, aligning to page size.
+    __ctru_heap_size = 0x4000;
+    __ctru_linear_heap_size = 0x1000;
+    __stacksize__ = 0x4000;
     // Allocate the application heap
     __ctru_heap = 0x08000000;
     res = svcControlMemory(&tmp, __ctru_heap, 0x0, __ctru_heap_size, (MemOp)MEMOP_ALLOC, (MemPerm)(MEMPERM_READ | MEMPERM_WRITE));
@@ -52,6 +48,10 @@ extern void __system_allocateHeaps(void) {
     // Set up newlib heap
     fake_heap_start = (char*)__ctru_heap;
     fake_heap_end = fake_heap_start + __ctru_heap_size;
+}
+
+extern bool hidShouldUseIrrst(void) {
+    return false;
 }
 
 static void adjust(u8 *out, float slider, float value) {
@@ -72,6 +72,7 @@ static void adjust(u8 *out, float slider, float value) {
 static u8 volume;
 
 static void volumeAdjust(s8 delta) {
+    mcuHwcInit();
     // disable volume slider
     u8 regTransfer[2] = { 0xff, 0x00 };
     MCUHWC_WriteRegister(0x58, regTransfer, 2);
@@ -92,12 +93,16 @@ static void volumeAdjust(s8 delta) {
     // and update
     adjust(regTransfer, volumeSlider / 255.0f, volume / 63.0f);
     MCUHWC_WriteRegister(0x58, regTransfer, 2);
+    mcuHwcExit();
+}
+
+extern void __appInit(void) {
+    srvInit();
+    hidInit();
 }
 
 int main(void) {
-    hidInit();
-    mcuHwcInit();
-    MCUHWC_GetSoundSliderLevel(&volume);
+    HIDUSER_GetSoundVolume(&volume);
 
     for (;;) {
         hidScanInput();
@@ -112,12 +117,6 @@ int main(void) {
                 volumeAdjust(+1);
             }
         }
-
         svcSleepThread(20000000LL);
     }
-
-    mcuHwcExit();
-    hidExit();
-
-    return 0;
 }
