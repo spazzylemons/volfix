@@ -18,16 +18,18 @@
 
 #include <3ds.h>
 
+#define VOLFIX_TID 0x000401300E621002ULL
+
 int main(void) {
     nsInit();
 
-    NS_TerminateProcessTID(0x000401300E621002ULL, 1000000000);
+    NS_TerminateProcessTID(VOLFIX_TID, 0);
 
     hidScanInput();
 
-    if(((hidKeysHeld() & (KEY_X | KEY_B))) == 0) {
+    if((hidKeysHeld() & KEY_X) == 0) {
         u32 pid;
-        NS_LaunchTitle(0x000401300E621002ULL, 0, &pid);
+        NS_LaunchTitle(VOLFIX_TID, 0, &pid);
     }
 
     nsExit();
