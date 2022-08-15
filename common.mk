@@ -1,4 +1,4 @@
-# volfix - background process for controlling volume and brightness
+# volfix - background process for controlling volume
 # Copyright (C) 2022 spazzylemons
 #
 # This program is free software: you can redistribute it and/or modify
